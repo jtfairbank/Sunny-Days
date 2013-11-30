@@ -1,0 +1,214 @@
+<!doctype html>
+
+<html>
+  <head>
+    <script src="http://code.jquery.com/jquery-1.9.0.min.js"></script>
+    <script src="lib/jquery-textcomplete/jquery.textcomplete.js"></script>
+    <!-- Docs and source: https://github.com/yuku-t/jquery-textcomplete -->
+
+    <script src="https://api.trello.com/1/client.js?key=d2a8105ca308a2d8c0faa257ded712d8"></script>
+    
+    <script>
+      var auth = {
+        // TODO: Move Trello.authorize settings into a common object, then
+        //       extend that to customize them?
+
+          check: function() {
+            Trello.authorize({
+                type: "redirect"                  // default
+              , name: "Trello Card Selector"
+              , persist: true                     // default
+              , interactive: false                // default
+              , scope: {                          // default
+                    read: true
+                  , write: false
+                  , account: false
+                }
+              , expiration: "never"
+              , success: function() {
+                  cards.setup();
+                }
+              , failure: function() {
+                  // TODO: Set function scope and use this as to not rely on globals?
+
+                  auth.do();
+                }
+            });
+          }
+        , do: function() {
+            Trello.authorize({
+                type: "redirect"                  // default
+              , name: "Trello Card Selector"
+              , persist: true                     // default
+              , interactive: true                 // default
+              , scope: {                          // default
+                    read: true
+                  , write: false
+                  , account: false
+                }
+              , expiration: "never"
+            });
+          }
+      };
+
+      var cards = {
+          byBoard: {
+            __processing: 0
+          }
+
+        , setup: function() {
+            // TODO: Cards probs have board info, just getting them all in one request
+            //       and sorting them after that makes more sense...
+            //
+            //       But this way I can play with the API a bit more. ;)
+            Trello.get('members/me/boards',
+              function(boards) { // success
+                // TODO: Set function scope and use this as to not rely on globals?
+
+                cards.byBoard.__processing = boards.length;
+
+                for (var i = 0; i < boards.length; i++) {
+                  var board = boards[i];
+
+                  $("#chooseABoard").append('<option value="'+board.name+'">'+board.name+'</option>');
+
+                  cards.byBoard[board.name] = [];
+                  cards.getFromBoard(board.id, board.name);
+                }
+              },
+              function() { // error
+                alert("Gerbils are distracting the guy in the machine, so he can't be bothered to lookup the Boards you belong to.");
+              });
+          }
+
+        , getFromBoard: function(boardID, boardName) {
+            Trello.get('boards/'+boardID+'/cards',
+              function(boardCards) { // success
+                cards.byBoard[boardName] = boardCards;
+                cards.byBoard.__processing--;
+
+                if (cards.byBoard.__processing === 0) {
+                  // gotten cards from all the boards, yay
+
+                  demo.setup();
+                }
+              },
+              function() { // error
+                alert("No MOM, I don't want to clean my room to find all those cards. {boardID: "+boardID+"}");
+              });
+          }
+      };
+
+      var demo = {
+          setup: function() {
+            var referenceCardByNumber = {
+                match: /\B#(\w*)$/
+              , search: function(term, callback) {
+                  var boardName = $("#chooseABoard").val();
+
+                  // precondition: we must choose a board
+                  if (boardName === "") {
+                    callback([]); // runs into this issue: https://github.com/yuku-t/jquery-textcomplete/pull/29
+                    return;
+                  }
+
+                  var boardCards = cards.byBoard[boardName];
+                  var suggestions = $.map(boardCards, function(card) {
+                    // TODO: implement a most recently interaction algo to suggest cards
+                    var idShort = card.idShort.toString();
+                    if (idShort.indexOf(term) === 0) {
+                      return idShort + ' ' + card.name;
+                    } else {
+                      return null;
+                    }
+                  });
+
+                  callback(suggestions);
+                }
+              , replace: function(replacementText) {
+                  return "#" + replacementText + " ";
+                }
+
+              , index: 1                  // group position of term to replace in regex
+              , maxCount: 5               // max # of items to show
+            };
+            
+            var textcompleteStrategies = [referenceCardByNumber];
+
+            $(".card-detail-edit > textarea").textcomplete(textcompleteStrategies);
+            $(".new-comment-input").textcomplete(textcompleteStrategies);
+            $(".action-comment > textarea").textcomplete(textcompleteStrategies);
+            
+            $(".demo").show();
+          }
+      };
+
+      /* On Load
+       * ------------------------------------------------------
+       * And here starts Dante's descent into callback hell.  His ideal
+       * path looks like this:
+       *
+       *  1. jQuery's onload
+       *  2. auth.do
+       *  3. cards.setup
+       *  4. cards.getFromBoard (for each board)
+       *  5. demo.setup (after loading, 1-4)
+       *
+       * TODO: Use jQuery promises to make the callback hell resemble
+       *       procedural programming.
+       */
+      $(function() {
+        auth.check();
+      });
+    </script>
+
+    <link rel="stylesheet" href="lib/jquery-textcomplete/jquery.textcomplete.css" />
+
+    <style>
+      .demo {
+        display: none;
+      }
+    </style>
+
+  </head>
+
+  <body>
+    <div class="demo">
+      <!-- pretend like we're in a board -->
+      <select id="chooseABoard">
+        <option value=""> -- Choose a Board -- </option>
+      </select>
+
+      <!-- mimic Trello's description input -->
+      <h1>Description</h1>
+      <div class="card-detail-edit edit">
+        <!-- <a href="#" class="helper js-format-help">Formatting help</a> -->
+        
+        <textarea class="field" style="height: 156px;"></textarea>
+        
+        <!--
+        <div class="edit-controls clearfix">
+          <input type="submit" class="primary confirm js-save-edit" value="Save">
+          <a href="#" class="icon-lg icon-close dark-hover cancel js-cancel-edit"></a>
+        </div>
+        -->
+      </div>
+
+      <!-- mimic Trello's new comment input -->
+      <h1>New Comment</h1>
+      <textarea class="new-comment-input js-no-ie-placeholder" placeholder="Write a comment..."></textarea>
+
+      <!-- mimic Trello's edit comment input -->
+      <h1>Edit Comment</h1>
+      <div class="action-comment markeddown">
+        <div class="current-comment">
+          <p>My lovely comment.</p>
+        </div>
+
+        <textarea class="js-text" placeholder="">My lovely comment.</textarea>
+      </div>
+
+    </div> <!-- end .demo -->
+
+  </body>
+</html>
