@@ -28,11 +28,10 @@
               , success: function() {
                   cards.setup();
                 }
-              , failure: function() {
-                  // TODO: Set function scope and use this as to not rely on globals?
-
-                  auth.do();
+              , failure: $.proxy(function() {
+                  this.do()
                 }
+                , this)            
             });
           }
         , do: function() {
@@ -62,39 +61,40 @@
             //
             //       But this way I can play with the API a bit more. ;)
             Trello.get('members/me/boards',
-              function(boards) { // success
-                // TODO: Set function scope and use this as to not rely on globals?
+                $.proxy(function(boards) {
+                  this.byBoard.__processing = boards.length;
 
-                cards.byBoard.__processing = boards.length;
+                  for (var i = 0; i < boards.length; i++) {
+                    var board = boards[i];
 
-                for (var i = 0; i < boards.length; i++) {
-                  var board = boards[i];
+                    $("#chooseABoard").append('<option value="'+board.name+'">'+board.name+'</option>');
 
-                  $("#chooseABoard").append('<option value="'+board.name+'">'+board.name+'</option>');
-
-                  cards.byBoard[board.name] = [];
-                  cards.getFromBoard(board.id, board.name);
+                    this.byBoard[board.name] = [];
+                    this.getFromBoard(board.id, board.name);
+                  }
                 }
-              },
-              function() { // error
-                alert("Gerbils are distracting the guy in the machine, so he can't be bothered to lookup the Boards you belong to.");
-              });
+                , this)  
+              
+              , function() { // error
+                  alert("Gerbils are distracting the guy in the machine, so he can't be bothered to lookup the Boards you belong to.");
+                });
           }
 
         , getFromBoard: function(boardID, boardName) {
             Trello.get('boards/'+boardID+'/cards',
-              function(boardCards) { // success
-                cards.byBoard[boardName] = boardCards;
-                cards.byBoard.__processing--;
+              $.proxy(function(boardCards) { // success
+                this.byBoard[boardName] = boardCards;
+                this.byBoard.__processing--;
 
-                if (cards.byBoard.__processing === 0) {
+                if (this.byBoard.__processing === 0) {
                   // gotten cards from all the boards, yay
 
                   demo.setup();
                 }
-              },
-              function() { // error
-                alert("No MOM, I don't want to clean my room to find all those cards. {boardID: "+boardID+"}");
+              }
+              , this)
+              , function() { // error
+                  alert("No MOM, I don't want to clean my room to find all those cards. {boardID: "+boardID+"}");
               });
           }
       };
