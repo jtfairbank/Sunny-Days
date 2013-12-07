@@ -28,9 +28,10 @@
               , success: function() {
                   cards.setup();
                 }
-              , failure: $.proxy(this, function() {
+              , failure: $.proxy(function() {
                   this.do()
-                })            
+                }
+                , this)            
             });
           }
         , do: function() {
@@ -60,7 +61,7 @@
             //
             //       But this way I can play with the API a bit more. ;)
             Trello.get('members/me/boards',
-                $.proxy(this, function(boards) {
+                $.proxy(function(boards) {
                   this.byBoard.__processing = boards.length;
 
                   for (var i = 0; i < boards.length; i++) {
@@ -71,7 +72,8 @@
                     this.byBoard[board.name] = [];
                     this.getFromBoard(board.id, board.name);
                   }
-                })  
+                }
+                , this)  
               
               , function() { // error
                   alert("Gerbils are distracting the guy in the machine, so he can't be bothered to lookup the Boards you belong to.");
@@ -80,7 +82,7 @@
 
         , getFromBoard: function(boardID, boardName) {
             Trello.get('boards/'+boardID+'/cards',
-              $.proxy(this, function(boardCards) { // success
+              $.proxy(function(boardCards) { // success
                 this.byBoard[boardName] = boardCards;
                 this.byBoard.__processing--;
 
@@ -89,7 +91,8 @@
 
                   demo.setup();
                 }
-              })
+              }
+              , this)
               , function() { // error
                   alert("No MOM, I don't want to clean my room to find all those cards. {boardID: "+boardID+"}");
               });
