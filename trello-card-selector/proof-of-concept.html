@@ -10,15 +10,12 @@
     
     <script>
       var auth = {
-        // TODO: Move Trello.authorize settings into a common object, then
-        //       extend that to customize them?
-
           check: function() {
             Trello.authorize({
                 type: "redirect"                  // default
               , name: "Trello Card Selector"
               , persist: true                     // default
-              , interactive: false                // default
+              , interactive: true
               , scope: {                          // default
                     read: true
                   , write: false
@@ -28,24 +25,9 @@
               , success: function() {
                   cards.setup();
                 }
-              , failure: $.proxy(function() {
-                  this.do()
-                }
-                , this)            
-            });
-          }
-        , do: function() {
-            Trello.authorize({
-                type: "redirect"                  // default
-              , name: "Trello Card Selector"
-              , persist: true                     // default
-              , interactive: true                 // default
-              , scope: {                          // default
-                    read: true
-                  , write: false
-                  , account: false
-                }
-              , expiration: "never"
+              , failure: function() {
+                  alert("Fuuuuuck can't login.");
+                }          
             });
           }
       };
