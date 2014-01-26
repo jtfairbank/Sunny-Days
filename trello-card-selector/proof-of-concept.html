@@ -11,7 +11,7 @@
     <script>
       var auth = {
           check: function() {
-            Trello.authorize({
+            return Trello.authorize({
                 type: "redirect"                  // default
               , name: "Trello Card Selector"
               , persist: true                     // default
@@ -22,8 +22,26 @@
                   , account: false
                 }
               , expiration: "never"
-              , success: function() {
-                  cards.setup();
+              // , success: function() {
+              //     cards.setup();
+              //   }
+              // , failure: $.proxy(function() {
+              //     this.do()
+              //  }
+              //  , this)            
+            });
+
+          }
+        , do: function() {
+            return Trello.authorize({
+                type: "redirect"                  // default
+              , name: "Trello Card Selector"
+              , persist: true                     // default
+              , interactive: true                 // default
+              , scope: {                          // default
+                    read: true
+                  , write: false
+                  , account: false
                 }
               , failure: function() {
                   alert("Fuuuuuck can't login.");
@@ -42,6 +60,7 @@
             //       and sorting them after that makes more sense...
             //
             //       But this way I can play with the API a bit more. ;)
+            var def = $.Deferred();
             Trello.get('members/me/boards',
                 $.proxy(function(boards) {
                   this.byBoard.__processing = boards.length;
@@ -60,6 +79,8 @@
               , function() { // error
                   alert("Gerbils are distracting the guy in the machine, so he can't be bothered to lookup the Boards you belong to.");
                 });
+
+            return def;
           }
 
         , getFromBoard: function(boardID, boardName) {
@@ -68,11 +89,11 @@
                 this.byBoard[boardName] = boardCards;
                 this.byBoard.__processing--;
 
-                if (this.byBoard.__processing === 0) {
+                //if (this.byBoard.__processing === 0) {
                   // gotten cards from all the boards, yay
 
-                  demo.setup();
-                }
+                  //demo.setup();
+                //}
               }
               , this)
               , function() { // error
@@ -140,7 +161,31 @@
        *       procedural programming.
        */
       $(function() {
-        auth.check();
+        //var def = $.Deferred();
+        var success = function() {
+          cards.setup() 
+            .done(function() {
+              demo.setup();
+            });
+          //cards.getFromBoard();
+        };
+        auth.check()
+          .done(success)
+          .fail(function() {
+            auth.do();
+          })
+
+        // $.when(auth.check(), function() {
+        // auth.do();
+        // cards.setup();
+        // cards.getFromBoard();
+        //def.resolve()
+      })
+      // if(def.isResolved()) {
+      //   demo.setup();
+      // }
+      //return def.promise();
+        //creating Deferred/Promise in order to resolve callbacks   
       });
     </script>
 
