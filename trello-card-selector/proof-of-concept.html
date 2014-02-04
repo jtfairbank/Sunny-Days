@@ -11,6 +11,8 @@
     <script>
       var auth = {
           check: function() {
+            var def = $.Deferred();
+
             Trello.authorize({
                 type: "redirect"                  // default
               , name: "Trello Card Selector"
@@ -23,61 +25,72 @@
                 }
               , expiration: "never"
               , success: function() {
-                  cards.setup();
+                  def.resolve();
                 }
               , failure: function() {
-                  alert("Fuuuuuck can't login.");
-                }          
+                  def.reject();
+               } 
             });
-          }
+
+            return def.promise();
+          } 
       };
 
       var cards = {
           byBoard: {
             __processing: 0
           }
-
+  
         , setup: function() {
             // TODO: Cards probs have board info, just getting them all in one request
             //       and sorting them after that makes more sense...
             //
             //       But this way I can play with the API a bit more. ;)
+            var def = $.Deferred(); 
             Trello.get('members/me/boards',
                 $.proxy(function(boards) {
+                  var count = boards.length;
                   this.byBoard.__processing = boards.length;
-
                   for (var i = 0; i < boards.length; i++) {
                     var board = boards[i];
 
                     $("#chooseABoard").append('<option value="'+board.name+'">'+board.name+'</option>');
 
                     this.byBoard[board.name] = [];
-                    this.getFromBoard(board.id, board.name);
+                    this.getFromBoard(board.id, board.name) 
+                      .done(function() {
+                          count--;
+                        if (count == 0)
+                          def.resolve();
+                      }); 
                   }
+
                 }
                 , this)  
               
               , function() { // error
                   alert("Gerbils are distracting the guy in the machine, so he can't be bothered to lookup the Boards you belong to.");
+                  def.reject();
                 });
+
+            return def.promise();
           }
 
         , getFromBoard: function(boardID, boardName) {
+            var def = $.Deferred();
+
             Trello.get('boards/'+boardID+'/cards',
               $.proxy(function(boardCards) { // success
                 this.byBoard[boardName] = boardCards;
                 this.byBoard.__processing--;
-
-                if (this.byBoard.__processing === 0) {
-                  // gotten cards from all the boards, yay
-
-                  demo.setup();
-                }
+                def.resolve();
               }
               , this)
               , function() { // error
                   alert("No MOM, I don't want to clean my room to find all those cards. {boardID: "+boardID+"}");
+                  def.reject();
               });
+            return def.promise();
           }
       };
 
@@ -139,9 +152,20 @@
        * TODO: Use jQuery promises to make the callback hell resemble
        *       procedural programming.
        */
+
       $(function() {
-        auth.check();
-      });
+        var success = function() {
+          cards.setup() 
+            .done(function() {
+              demo.setup();
+            });
+        };
+        auth.check()  
+          .done(success) 
+          .fail(function() { 
+            alert("Taylor and Sunny fucked up");
+          });
+      })
     </script>
 
     <link rel="stylesheet" href="lib/jquery-textcomplete/jquery.textcomplete.css" />
